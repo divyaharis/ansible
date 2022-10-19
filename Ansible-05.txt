@@ -1,0 +1,116 @@
+Tags in Ansible
+=======================
+Tags are used to get more modular control on the execution
+of the playbooks
+
+vim playbook14.yml
+---
+- name: Implementing tags
+  hosts: all
+  tasks:
+   - name: Install tree
+     apt:
+      name: tree
+      state: present
+     tags: tree_installation
+   - name: Create user
+     user:
+      name: Ravi
+      password: levelup
+     tags: user_creation
+   - name: Copy /etc/passwd file
+     copy:
+      src: /etc/passwd
+      dest: /tmp
+...
+
+To execute only the the tagged modules
+ansible-playbook playbook14.yml --tags=tagged -b
+
+To execute only the untagged modules
+ansible-playbook playbook14.yml --tags=untagged -b
+
+To execute modules with a specific tag name
+ansible-playbook playbook14.yml --tags=user_creation -b
+
+===================================================================
+When conditions
+======================
+These are similar to "if" condiotions ie we want to execute
+a module when a specific condition is true
+
+---
+- name: Implementing when conditions
+  hosts: all
+  vars:
+   - a: 10
+  tasks:
+   - name: Download from git
+     git:
+      repo: git-url
+      dest: /tmp/git
+     when: a == 10 
+...
+
+
+=======================================================================
+---
+- name: Check if file f1 is present if not create a folder f1
+  hosts: all
+  tasks:
+   - name: check if f1 file is present
+     stat:
+      path: /tmp/f1
+     register: a
+   - name: Display output of the above module
+     debug:
+      var: a
+   - name: Create dir f1 if file f1 is not present
+     file:
+      name: /tmp/f1
+      state: directory
+     when: a.stat.exists == false
+...
+==========================================================
+Handlers
+================
+1 Handlers are modules that are executed if some other module 
+  is executed successfully and it has made some changes
+
+2 Handlers are executed only after all the tasks are executed
+
+3 Handlers are executed in the order that they are mentioned 
+  in the handlers section and not in the order that they are
+  called in the tasks section
+
+4 Even if a handler is called multiple times in the task section
+  it will be executed only once
+
+vim playbook17.yml
+---
+- name: Implementing Handlers
+  hosts: all
+  tasks:
+   - name: Install apache2
+     apt:
+      name: apache2
+      state: present
+     notify: Check url response
+   - name: Edit the index.html file
+     copy:
+      content: "IntelliQIT Home Page"
+      dest: /var/www/html/index.html
+     notify: Restart apache2
+  handlers:
+   - name: Restart apache2
+     service:
+      name: apache2
+      state: restarted
+   - name: Check url response
+     uri:
+      url: "{{item}}"
+      status_code: 200
+     with_items:
+      - http://172.31.95.178
+      - http://172.31.88.236
+...

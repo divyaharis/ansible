@@ -1,0 +1,327 @@
+=======================================================================
+Roles in Ansibles
+========================
+Roles provide greater reusability then playbooks
+Generally roles are used to configure s/w applications
+Everything necessary to configure a s/w applications should be
+present with the folder structure of a role
+This aids in easy understanding and maintainance of CM activites
+
+Roles should be create in /etc/ansible/roles folder
+
+To create roles in some other locations
+sudo vim /etc/ansible/ansible.config
+Search for roles_path and give the path of the directory where
+we want to create the role and uncomment it
+
+Folder structrue of roles
+================================
+README.MD : This is a simple text file that is used to store info about
+the role in plain English
+
+defaults: This stores info about the application that we are configuring
+and it also stores varibales of lesser priority
+
+files: All the static files that are required for configuring a s/w application
+are stored here
+
+meta: Data about the data is called as metadata and this is used to store info about 
+the roles like when it was created who created it what versions it supports etc
+ 
+handlers: handlers are modules that are executed when some other module is 
+successfull and it has  made some changes,all such handlers are stored in
+this folder
+
+tasks: The actual configuration management activity that has to be perfromed on the
+remote servers is stored in this folder
+
+templates: This is used to store dynamic configuration files
+
+tests: All the modules that are used to check if the remote configurations
+are successfull or not are stored in this folder
+
+vars: This is used to store all the variables that are required for configuring
+a specific s/w application.These variables have higher priority than the
+variables in defaults folder.
+
+
+
+Apache Role
+========================
+1 Go into the /etc/ansible/roles folder
+  cd /etc/ansible/roles
+
+2 Create a new role for apache2
+  ansible-galaxy init apache2 --offline
+
+3 check the tree structure of the role that we created
+  tree apache2
+
+4 Go to tasks folder in role and create the task for configuring apache2
+  cd apache2/tasks
+vim main.yml
+---
+- include: install.yml
+- include: configure.yml
+- include: check_url_response.yml
+...
+
+Save and quit    Esc :wq Enter
+
+vim install.yml
+---
+- name: install apache2
+  apt:
+   name: apache2
+   state: present
+
+Save and quit Esc :wq Enter
+
+vim configure.yml
+---
+- name:copy index.html
+  copy:
+   src: index.html
+   dest: /var/www/html/index.html
+  notify:
+   Restart apache2 
+...
+ 
+Save and quit Esc :wq Enter
+
+vim check_url_response.yml
+---
+- name: Check url response
+  uri:
+   url: "{{item}}"
+   status: 200
+  with_items:
+   - http://172.31.18.210
+   - http://172.31.31.227
+...
+
+Save and quit Esc :wq Enter
+
+Go to files folder to create the index.html file
+cd ..
+cd files
+sudo vim index.html
+<html>
+  <body>
+     <h1>This is levelup</h1>
+  </body>
+</html>
+
+Save and quit Esc :wq Enter
+
+Go to handlers folder
+cd ..
+cd handlers
+
+sudo vim main.yml
+---
+# handlers file for apache2
+- name: Restart apache2
+  service:
+   name: apache2
+   state: restarted
+...
+
+Save and quit Esc :wq Enter
+
+CREATE the parent playbook to call the roles
+cd ..
+cd ..
+sudo vim apache_role.yml
+---
+- name: Implementing roles for apache2
+  hosts: all
+  roles:
+   - apache2
+...
+
+Save and quit Esc :wq Enter
+
+To execute the role
+ansible-playbook apache_role.yml -b
+
+
+===============================================================================
+
+Creating roles for tomcat
+
+---------------------------
+
+1 cd /etc/ansible/roles
+
+2 ansible-galaxy init tomcat --offline
+
+3 Create tasks for tomcat
+
+  a) cd tomcat/tasks
+
+  b) sudo vim main.yml
+
+  ---
+
+  - name: Calling child playbooks
+
+    include: "{{item}}"
+
+    with_items: 
+
+     - install.yml
+
+     - configure.yml
+
+     - restart.yml
+
+  ...
+
+  Save and quit
+
+ c) sudo vim install.yml                     
+
+---
+
+- name: Installing tomcat8 and tomcat8-admin
+
+  apt:
+
+   name: "{{item.a}}"
+
+   state: "{{item.b}}"
+
+   update_cache: "{{item.c}}"
+
+  with_items:
+
+   - {a: "{{pkg1}}",b: "{{state1}}",c: "{{cache1}}"}
+
+   - {a: "{{pkg2}}",b: "{{state1}}",c: "{{cache2}}"}
+
+...
+
+d) sudo vim configure.yml
+
+---
+
+- name: Copy tomcat-user.xml 
+
+  copy:
+
+   src: "{{file1}}"
+
+   dest: "{{destination1}}"
+
+- name: Change port of tomcat from 8080 to 9090
+
+  replace:
+
+   path: "{{path1}}"
+
+   regexp: "{{port1}}"
+
+   replace: "{{port2}}"
+
+  notify:
+
+   - check_url_response
+
+...
+
+
+
+e) sudo vim restart.yml
+
+---
+
+- name: Restart tomcat8
+
+  service:
+
+   name: "{{pkg1}}"
+
+   state: "{{state3}}"
+
+...
+
+4) Create the handlers
+
+   cd ..
+   cd handlers
+
+   sudo vim main.yml
+
+---
+
+# handlers file for tomcat
+
+- name: check_url_response
+
+  uri:
+
+   url: "{{item.a}}"
+
+   status: "{{item.b}}"
+
+  with_items:
+
+   - {a: "{{server1}}",b: "{{status1}}"}
+
+   - {a: "{{server2}}",b: "{{status1}}"}
+
+...
+
+
+5) create static files
+
+   cd ..
+   cd files
+
+  a)   sudo vim tomcat-users.xml
+   <tomcat-users>
+    <user username="admin" password="password" roles="manager-script"/>
+  </tomcat-users>
+
+  Save and quit
+
+ 
+6) Define the variables
+   cd ..
+   cd vars
+   sudo vim main.yml
+---
+# vars file for tomcat
+pkg1: tomcat8
+pkg2: tomcat8-admin
+state1: present
+state2: absent
+state3: restarted
+cache1: yes
+cache2: no
+file1: tomcat-users.xml
+destination1: /etc/tomcat8
+server1: http://172.31.87.8:9090
+server2: http://172.31.84.59:9090
+status1: 200
+status2: -1
+path1: /etc/tomcat8/server.xml
+port1: 8080
+port2: 9090
+...
+
+7 Come out of the tomcat roles
+  cd ../..
+
+8 Create a playbook to call that role
+  sudo vim configure_tomcat.yml
+---
+- name: Configuring tomcat using roles
+  hosts: all
+  roles:
+   - tomcat
+...
+
+9 To run the playbook for the above role
+  ansible-playbook configure_tomcat.yml -b

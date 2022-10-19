@@ -1,0 +1,151 @@
+
+Ansible Vault
+===================
+This is a feature of ansible which allows us to protect the playbooks
+via a password.Playbooks created using vault can be viewed,edited or
+executed only if we know the password
+
+1 To create a vault playbook
+  ansible-vault create playbook_name.yml
+
+2 To view the content of  a vault playbook
+  ansible-vault view playbook_name.yml
+
+3 To edit the content of  a vault playbook
+  ansible-vault edit playbook_name.yml
+
+4 To convert an ordinary playbook into a vault playbook
+  ansible-vault encrypt playbook_name.yml
+
+5 To convert a vault playbook into an ordinary playbook
+  ansible-vault decrypt playbook_name.yml
+
+6 To reset the password of a vault  playbook
+  ansible-vault rekey playbook_name.yml
+===============================================================
+
+
+
+======================================================================
+Ansible Docker Automation:
+
+---
+- name: Install python-pip,docker,docker-py
+  hosts: all
+  tasks:
+   - name: Install python-pip
+     apt:
+      name: python3-pip
+      state: present
+   - name: install docker-py, download docker and install docker
+     shell: "{{item}}"
+     with_items:
+        - pip install docker-py
+        - curl -fsSL https://get.docker.com -o get-docker.sh
+        - sh get-docker.sh
+
+======================================================================
+---
+- name: download postgres image
+  hosts: all
+  tasks:
+   - name: download postgre
+     docker_image:
+         name: pacur/centos-7
+         state: absent
+======================================================================
+---
+- name: working on tomcat conatainers
+  hosts: all
+  tasks:
+   - name: start tomcat as container
+     docker_container:
+        image: tomcat
+        name: mytomcat
+   - name: stop the container
+     docker_container:
+        name: mytomcat
+        state: stopped
+   - name: Remove tomcat container
+     docker_container:
+         name: mytomcat
+         state: absent
+===================================================================
+---
+- name: start 10 nginx containers
+  hosts: all
+  tasks:
+    - name: start nginx
+      docker_container:
+         image: nginx
+         name: "nginx{{item}}"
+      with_sequence: count=10
+==================================================================
+---
+- name: start ubuntu as a container
+  hosts: all
+  tasks:
+    - name: start ubuntu container
+      docker_container:
+         image: ubuntu
+         name: c1
+         interactive: yes
+         tty: yes
+         volumes:
+           - /data
+==================================================================
+---
+- name: implement docker-compose
+  hosts: all
+  tasks:
+    - name: start mysql as a container
+      docker_container:
+        image: mysql:5
+        name: mydb
+        env:
+          MYSQL_ROOT_PASSWORD: password
+    - name: start wordpres container
+      docker_container:
+        image: wordpress
+        name: mywordpress
+        ports:
+          - 9999:80
+        links:
+          - "mydb:mysql"
+====================================================================
+---
+- name: create ci-cd architecture
+  hosts: all
+  tasks:
+    - name: start jenkins
+      docker_container:
+        image: jenkins/jenkins
+        name: devserver
+        ports:
+          - 8181:8080
+    - name: start tomcat as acontainer
+      docker_container:
+        image: tomcat
+        name: "{{item.a}}"
+        ports:
+           "{{item.b}}"
+        links:
+          - "devserver:jenkins"
+      with_items:
+        - {a: qaserver, b: "5050:8080"}
+        - {a: prodserver, b: "6060:8080"}
+==========================================================================
+---
+- name: push image to docker hub
+  hosts: 172.31.24.221
+  tasks:
+    - name: login into docker hub
+      docker_login:
+        username: dockerhub_username
+        password: Hpassword
+    - name: push the image
+      docker_image:
+        name: username/image_name
+        push: yes
+	source: local
+===========================================================================
